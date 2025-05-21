@@ -36,7 +36,7 @@ class UpsampleCat(nn.Module):
         self.in_nc = in_nc
         self.out_nc = out_nc
 
-        self.deconv = nn.ConvTranspose2d(in_nc, out_nc, 2, 2, 0, False)
+        self.deconv = nn.ConvTranspose2d(in_nc, out_nc, 2, 2, 0, 0)
         initialize_weights(self.deconv, 0.1)
 
     def forward(self, x1, x2):
@@ -244,8 +244,9 @@ class UNet(nn.Module):
 
 if __name__ == "__main__":
     import numpy as np
-    x = torch.from_numpy(np.zeros((10, 3, 32, 32), dtype=np.float32))
+    x = torch.from_numpy(np.zeros((10, 1, 32, 32), dtype=np.float32))
     print(x.shape)
-    net = UNet(in_nc=3, out_nc=3, blindspot=False)
+    #net = UNet(in_nc=3, out_nc=3, blindspot=False)
+    net = UNet(in_nc=1, out_nc=1, blindspot=False)
     y = net(x)
     print(y.shape)

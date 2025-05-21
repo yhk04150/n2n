@@ -26,7 +26,7 @@ parser.add_argument('--log_name', type=str, default='unet_gauss25_b4e100r02')
 parser.add_argument('--gpu_devices', default='0', type=str)
 parser.add_argument('--parallel', action='store_true')
 parser.add_argument('--n_feature', type=int, default=48)
-parser.add_argument('--n_channel', type=int, default=3)
+parser.add_argument('--n_channel', type=int, default=1)
 parser.add_argument('--lr', type=float, default=3e-4)
 parser.add_argument('--gamma', type=float, default=0.5)
 parser.add_argument('--n_epoch', type=int, default=100)
@@ -201,8 +201,11 @@ class DataLoader_Imagenet_val(Dataset):
     def __getitem__(self, index):
         # fetch image
         fn = self.train_fns[index]
-        im = Image.open(fn)
-        im = np.array(im, dtype=np.float32)
+        #im = Image.open(fn)
+        im = Image.open(fn).convert('L')    
+        im = np.array(im, dtype=np.uint8)
+
+        im = np.expand_dims(im, axis=-1)
         # random crop
         H = im.shape[0]
         W = im.shape[1]
@@ -226,8 +229,10 @@ def validation_kodak(dataset_dir):
     fns.sort()
     images = []
     for fn in fns:
-        im = Image.open(fn)
-        im = np.array(im, dtype=np.float32)
+        im = Image.open(fn).convert('L')
+        im = np.array(im, dtype=np.uint8)
+
+        im = np.expand_dims(im, axis=-1)
         images.append(im)
     return images
 
@@ -238,8 +243,10 @@ def validation_bsd300(dataset_dir):
     fns.sort()
     images = []
     for fn in fns:
-        im = Image.open(fn)
-        im = np.array(im, dtype=np.float32)
+        im = Image.open(fn).convert('L')
+        im = np.array(im, dtype=np.uint8)
+
+        im = np.expand_dims(im, axis=-1)
         images.append(im)
     return images
 
@@ -249,8 +256,10 @@ def validation_Set14(dataset_dir):
     fns.sort()
     images = []
     for fn in fns:
-        im = Image.open(fn)
-        im = np.array(im, dtype=np.float32)
+        im = Image.open(fn).convert('L')
+        im = np.array(im, dtype=np.uint8)
+
+        im = np.expand_dims(im, axis=-1)
         images.append(im)
     return images
 
@@ -384,7 +393,7 @@ for epoch in range(1, opt.n_epoch + 1):
         Lambda = epoch / opt.n_epoch * opt.increase_ratio
         diff = noisy_output - noisy_target
         exp_diff = noisy_sub1_denoised - noisy_sub2_denoised
-
+        #l1 = torch.mean(torch.abs(diff)) #l1 loss 
         loss1 = torch.mean(diff**2)
         loss2 = Lambda * torch.mean((diff - exp_diff)**2)
         loss_all = opt.Lambda1 * loss1 + opt.Lambda2 * loss2
@@ -419,12 +428,14 @@ for epoch in range(1, opt.n_epoch + 1):
                 for idx, im in enumerate(valid_images):
                     origin255 = im.copy()
                     origin255 = origin255.astype(np.uint8)
+
                     im = np.array(im, dtype=np.float32) / 255.0
                     noisy_im = noise_adder.add_valid_noise(im)
                     if epoch == opt.n_snapshot:
                         noisy255 = noisy_im.copy()
                         noisy255 = np.clip(noisy255 * 255.0 + 0.5, 0,
                                            255).astype(np.uint8)
+                        
                     # padding to square
                     H = noisy_im.shape[0]
                     W = noisy_im.shape[1]
@@ -445,6 +456,9 @@ for epoch in range(1, opt.n_epoch + 1):
                     prediction = prediction.squeeze()
                     pred255 = np.clip(prediction * 255.0 + 0.5, 0,
                                       255).astype(np.uint8)
+                    pred255 = np.expand_dims(pred255, axis=-1)
+
+
                     # calculate psnr
                     cur_psnr = calculate_psnr(origin255.astype(np.float32),
                                               pred255.astype(np.float32))
@@ -459,20 +473,32 @@ for epoch in range(1, opt.n_epoch + 1):
                             validation_path,
                             "{}_{:03d}-{:03d}_clean.png".format(
                                 valid_name, idx, epoch))
-                        Image.fromarray(origin255).convert('RGB').save(
+                        if origin255.ndim ==3 and origin255.shape[2] ==1:
+                            origin255 = origin255.squeeze(axis=2)
+                        origin255 = (origin255 * 255).astype(np.uint8)
+                        origin255 = 255 - origin255
+                        Image.fromarray(origin255, mode='L').save(
                             save_path)
                         save_path = os.path.join(
                             validation_path,
                             "{}_{:03d}-{:03d}_noisy.png".format(
                                 valid_name, idx, epoch))
-                        Image.fromarray(noisy255).convert('RGB').save(
+                        if noisy255.ndim ==3 and noisy255.shape[2] ==1:
+                            noisy255 = noisy255.squeeze(axis=2)
+                        noisy255 = (noisy255 * 255).astype(np.uint8)
+                        noisy255 = 255 - noisy255
+                        Image.fromarray(noisy255, mode='L').save(
                             save_path)
                     if i == 0:
                         save_path = os.path.join(
                             validation_path,
                             "{}_{:03d}-{:03d}_denoised.png".format(
                                 valid_name, idx, epoch))
-                        Image.fromarray(pred255).convert('RGB').save(save_path)
+                        if pred255.ndim ==3 and pred255.shape[2] ==1:
+                            pred255 = pred255.squeeze(axis=2)
+                        pred255 = (pred255 * 255).astype(np.uint8)
+                        pred255 = 255-pred255
+                        Image.fromarray(pred255, mode='L').save(save_path)
 
             psnr_result = np.array(psnr_result)
             avg_psnr = np.mean(psnr_result)
