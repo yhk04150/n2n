@@ -1,0 +1,7 @@
+result
+data
+*.pth
+*.csv
+*.png
+*.tif
+*.pyc
