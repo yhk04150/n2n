@@ -1,0 +1,1 @@
+python train.py   --noisetype=gauss25  --save_model_path=./results  --log_name=unet_gauss25_b4e100r02  --increase_ratio=2
